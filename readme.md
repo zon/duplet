@@ -12,6 +12,7 @@ This script merges the contents of two folders by comparing the modification tim
 
 ```
 var duplet = require('duplet')
+
 duplet('folder-a', 'folder-b')
 ```
 

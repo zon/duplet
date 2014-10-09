@@ -108,7 +108,7 @@ module.exports = function(src, dst, ignored) {
 			.on('unlink', rm)
 			.on('unlinkDir', rm)
 			.on('error', function(err) {
-				console.error(error)
+				console.error(err)
 			})
 	})
 }
