@@ -48,10 +48,10 @@ var changeFile = function(a, b) {
 	))
 }
 
-var remove = function(f) {
-	if (fs.existsSync(f)) {
-		fs.removeSync(f)
-		gutil.log(gutil.colors.green("remove: " + relativePath(f)))
+var remove = function(a, b) {
+	if (!fs.existsSync(a) && fs.existsSync(b)) {
+		fs.removeSync(b)
+		gutil.log(gutil.colors.green("remove: " + relativePath(b)))
 	}
 }
 
@@ -99,7 +99,9 @@ module.exports = function(src, dst, ignored) {
 			compare(a, getOther(a))
 		}
 		var rm = function(a) {
-			remove(getOther(a))
+			setTimeout(200, function() {
+				remove(a, getOther(a))
+			})
 		}
 		var watcher = chokidar.watch(paths, {ignored: ignored, persistent: true})
 			.on('add', merge)
