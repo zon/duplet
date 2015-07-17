@@ -66,7 +66,40 @@ var relativePath = function(p) {
 	return path.relative(process.cwd(), p)
 }
 
-module.exports = function(src, dst, ignored) {
+// merge prexisting files
+var mergeExisting = function(dir, ignored, getOther, callback) {
+	var walk = function(p, stat) {
+		if (ignored && !ignored.test(p)) {
+			compare(p, getOther(p))
+		}
+	}
+	Walker(dir)
+		.on('dir', walk)
+		.on('file', walk)
+		.on('error', callback)
+		.on('end', callback)
+}
+
+// watch for changes and merge
+var watchMerge = function(dirs, ignored, getOther) {
+	var merge = function(a, stat) {
+		compare(a, getOther(a))
+	}
+	var rm = function(a) {
+		remove(a, getOther(a))
+	}
+	return chokidar.watch(dirs, {ignored: ignored, persistent: true})
+		.on('add', merge)
+		.on('addDir', merge)
+		.on('change', merge)
+		.on('unlink', rm)
+		.on('unlinkDir', rm)
+		.on('error', function(err) {
+			console.error(err)
+		})
+}
+
+var duplet = function(src, dst, ignored) {
 	var srcDir = path.resolve(src)
 	var dstDir = path.resolve(dst)
 
@@ -79,38 +112,34 @@ module.exports = function(src, dst, ignored) {
 			throw new Error("Path isn't in source or destination: "+ p)
 		}
 	}
-
-	// merge prexisting files
+	
 	var paths = [srcDir, dstDir]
 	async.eachSeries(paths, function(dir, cb) {
-		var walk = function(p, stat) {
-			if (ignored && !ignored.test(p)) {
-				compare(p, getOther(p))
-			}
-		}
-		Walker(dir)
-			.on('dir', walk)
-			.on('file', walk)
-			.on('error', cb)
-			.on('end', cb)
+		mergeExisting(dir, ignored, getOther, cb)
+		
 	}, function(err) {
 		if (err) return console.error(err);
-
-		// watch for changes and merge
-		var merge = function(a, stat) {
-			compare(a, getOther(a))
-		}
-		var rm = function(a) {
-			remove(a, getOther(a))
-		}
-		var watcher = chokidar.watch(paths, {ignored: ignored, persistent: true})
-			.on('add', merge)
-			.on('addDir', merge)
-			.on('change', merge)
-			.on('unlink', rm)
-			.on('unlinkDir', rm)
-			.on('error', function(err) {
-				console.error(err)
-			})
+		watchMerge(paths, ignored, getOther)
 	})
 }
+
+duplet.push = function(src, dst, ignored) {
+	var srcDir = path.resolve(src)
+	var dstDir = path.resolve(dst)
+
+	var getOther = function(p) {
+		var o = p.replace(srcDir, dstDir)
+		if (o == p) {
+			console.log("Path isn't in source: "+ p)
+			throw new Error("Path isn't in source: "+ p)
+		} else
+			return o
+	}
+
+	mergeExisting(srcDir, ignored, getOther, function(err) {
+		if (err) return console.error(err);
+		watchMerge([srcDir], ignored, getOther)
+	})
+}
+
+module.exports = duplet
